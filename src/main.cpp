@@ -5,8 +5,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <SPI.h>
-#include <PN532_SPI.h>
-#include <PN532.h>
+#include <Adafruit_PN532.h>
 #include "../include/config.h"
 #include "../include/state.h"
 #include "buzzer.h"
@@ -14,8 +13,7 @@
 #include "web_portal.h"
 
 // ── PN532 SPI instance ───────────────────────────────────────────
-PN532_SPI pn532spi(SPI, PN532_SS);
-PN532 nfc(pn532spi);
+Adafruit_PN532 nfc(PN532_SS, &SPI);
 
 // ── Global state (dideklarasikan di state.h sebagai extern) ──────
 SystemState systemState  = STATE_FIRST_SETUP;
