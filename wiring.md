@@ -7,14 +7,14 @@
 | 1 | ESP32 DEVKITC V4 WROOM-32D | 1 | Mikrokontroler utama |
 | 2 | PN532 NFC/RFID Module | 1 | Pembaca kartu RFID/KTP |
 | 3 | Relay Module 2-Channel (Active LOW) | 1 | Dikendalikan ESP32 |
-| 4 | Relay Otomotif 12V 40A | 2 | Relay kontak + relay starter |
+| 4 | Relay Otomotif 12V 40A **4 kaki** | 2 | Relay kontak + relay starter |
 | 5 | Active Buzzer 5V | 1 | Feedback suara |
 | 6 | Transistor NPN S8050 atau 2N2222 | 1 | Driver buzzer |
 | 7 | Resistor 1kΩ | 1 | Base transistor buzzer |
 | 8 | Step-down module LM2596 / MP1584 | 1 | Konversi 12V → 5V |
 | 9 | Kabel jumper | secukupnya | |
 | 10 | Fuse 1A | 1 | Proteksi jalur step-down |
-| 11 | Soket relay otomotif | 2 | Opsional, mempermudah pemasangan |
+| 11 | Soket relay otomotif 4 kaki | 2 | Opsional, mempermudah pemasangan |
 
 ---
 
@@ -150,16 +150,17 @@ ESP32 IO27   ──── Relay IN2  (Relay Starter)
 
 ## 5. Wiring Relay Otomotif (Automotive Relay 12V)
 
-### Pinout Relay Otomotif Standar:
+### Pinout Relay Otomotif 4 Kaki:
 ```
          ┌──────────┐
-  85 ────┤ Coil (-) ├
-  86 ────┤ Coil (+) ├
-  30 ────┤ Common   ├
-  87 ────┤ NO       ├  (Normally Open)
- 87a ────┤ NC       ├  (Normally Closed, biasanya tidak dipakai)
+  85 ────┤ Coil (-) ├───── GND
+  86 ────┤ Coil (+) ├───── 12V (dari relay module)
+  30 ────┤ Common   ├───── Sumber (input)
+  87 ────┤ NO       ├───── Tujuan (output, aktif saat relay ON)
          └──────────┘
 ```
+
+> Relay 4 kaki tidak punya pin 87a (NC). Semua koneksi hanya lewat pin 30 → 87.
 
 ### Relay Kontak (Ignition ON):
 
@@ -169,11 +170,13 @@ Relay Module OUT1:
   NO  ──── Pin 86 Automotive Relay Kontak
 
 Automotive Relay Kontak:
-  Pin 85  ──── GND (massa motor)
-  Pin 86  ──── NO Relay Module OUT1
-  Pin 30  ──── Jalur kontak asli motor (kabel yang biasa dihidupkan kunci kontak)
-  Pin 87  ──── Jalur ignition bus motor (semua sistem kelistrikan zündung)
+  Pin 85  ──── GND (massa motor/bodi)
+  Pin 86  ──── NO dari Relay Module OUT1
+  Pin 30  ──── Jalur kontak asli motor (kabel yang dihidupkan kunci kontak)
+  Pin 87  ──── Jalur ignition bus motor (distribusi ke semua sistem kelistrikan)
 ```
+
+Cara kerja: saat ESP32 aktifkan relay module OUT1 → 12V masuk ke pin 86 → relay kontak menutup → pin 30 terhubung ke pin 87 → ignition ON.
 
 ### Relay Starter:
 
@@ -183,11 +186,13 @@ Relay Module OUT2:
   NO  ──── Pin 86 Automotive Relay Starter
 
 Automotive Relay Starter:
-  Pin 85  ──── GND (massa motor)
-  Pin 86  ──── NO Relay Module OUT2
-  Pin 30  ──── Satu sisi tombol starter asli motor
-  Pin 87  ──── Sisi lain tombol starter (ke solenoid starter)
+  Pin 85  ──── GND (massa motor/bodi)
+  Pin 86  ──── NO dari Relay Module OUT2
+  Pin 30  ──── Satu sisi kabel tombol starter asli
+  Pin 87  ──── Sisi lain kabel tombol starter (ke solenoid starter)
 ```
+
+Cara kerja: saat ESP32 aktifkan relay module OUT2 → relay starter menutup → pin 30 terhubung ke pin 87 → simulasi tombol starter ditekan → dinamo berputar.
 
 > **Penting:** Kabel motor berbeda tiap merek/model. Cek wiring diagram motor spesifik
 > kamu. Cara paling aman: **paralel** relay dengan tombol/kunci yang sudah ada,
