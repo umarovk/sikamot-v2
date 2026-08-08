@@ -131,20 +131,24 @@ IO4   ────────────  IRQ
 
 ## 4. Wiring Relay Module 2-Channel ke ESP32
 
+**Wajib lepas jumper JD-VCC–VCC** sebelum menyambung.
+
 ```
-Step-down 5V ──── Relay VCC (JD-VCC)
-ESP32 3.3V   ──── Relay VCC (optocoupler side)
-ESP32 GND    ──── Relay GND
+Step-down 5V ──── Relay JD-VCC  (daya relay coil)
+ESP32 3.3V   ──── Relay VCC     (daya optocoupler)
+Step-down GND ─── Relay GND
+ESP32 GND    ──── Relay GND (sisi kedua)
 
 ESP32 IO26   ──── Relay IN1  (Relay Kontak/ON)
 ESP32 IO27   ──── Relay IN2  (Relay Starter)
 ```
 
 > **Active LOW:** GPIO LOW = Relay ON, GPIO HIGH = Relay OFF
-> 
-> Jika relay module punya jumper VCC-JD-VCC: **lepas jumpernya**, lalu:
-> - VCC → 3.3V ESP32
-> - JD-VCC → 5V step-down
+>
+> **Kenapa harus dipisah?** Saat ESP32 mati, pin GPIO menjadi floating dan
+> dioda proteksi internal ESP32 menarik pin IN ke GND → relay aktif tidak sengaja.
+> Dengan memisahkan VCC optocoupler ke 3.3V ESP32, saat ESP32 mati optocoupler
+> ikut mati → relay tidak bisa aktif walau IN floating.
 
 ---
 
