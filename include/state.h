@@ -9,3 +9,10 @@ enum SystemState {
 
 extern SystemState systemState;
 extern unsigned long enrollStartTime;
+
+enum PendingCommand {
+    CMD_NONE,
+    CMD_START_ENGINE,
+    CMD_STOP_ENGINE
+};
+extern PendingCommand pendingCommand;

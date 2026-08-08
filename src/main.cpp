@@ -18,6 +18,7 @@ Adafruit_PN532 nfc(PN532_SS, &SPI);
 // ── Global state (dideklarasikan di state.h sebagai extern) ──────
 SystemState systemState  = STATE_FIRST_SETUP;
 unsigned long enrollStartTime = 0;
+PendingCommand pendingCommand = CMD_NONE;
 
 // ── Relay helpers (Active LOW) ───────────────────────────────────
 static void relayOn(bool on) {
@@ -181,6 +182,16 @@ void setup() {
 // ── Loop ─────────────────────────────────────────────────────────
 void loop() {
     webPortalHandle();
+
+    // Proses perintah dari web portal
+    if (pendingCommand != CMD_NONE) {
+        if (pendingCommand == CMD_START_ENGINE && systemState == STATE_LOCKED) {
+            startEngine();
+        } else if (pendingCommand == CMD_STOP_ENGINE && systemState == STATE_UNLOCKED) {
+            stopEngine();
+        }
+        pendingCommand = CMD_NONE;
+    }
 
     // Auto-exit enroll mode setelah timeout
     if (systemState == STATE_ENROLL) {

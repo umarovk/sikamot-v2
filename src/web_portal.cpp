@@ -41,6 +41,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0d0d0d;
 .btn:hover{opacity:.85}
 .btn-blue{background:#38bdf8;color:#0d0d0d}
 .btn-red{background:#ef4444;color:#fff}
+.btn-green{background:#22c55e;color:#0d0d0d}
 .btn-yellow{background:#f59e0b;color:#0d0d0d}
 .btn-sm{padding:5px 11px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700}
 .btn-rm{background:#ef4444;color:#fff}
@@ -72,6 +73,8 @@ hr{border:none;border-top:1px solid #1f2937;margin:12px 0}
       <span class="badge" id="sBadge">--</span>
     </div>
     <p class="msg" id="sMsg">Memuat...</p>
+    <button class="btn btn-green" id="btnStart" style="display:none" onclick="doStartEngine()">&#9654; Hidupkan Mesin</button>
+    <button class="btn btn-red"   id="btnStop"  style="display:none" onclick="doStopEngine()">&#9632; Matikan Mesin</button>
   </div>
 
   <!-- First Setup -->
@@ -155,6 +158,8 @@ function renderUI(d){
   badge.textContent=label;
   badge.className='badge '+cls;
   msg.textContent=text;
+  document.getElementById('btnStart').style.display=d.state==='LOCKED'?'block':'none';
+  document.getElementById('btnStop').style.display=d.state==='UNLOCKED'?'block':'none';
   document.getElementById('secSetup').style.display=d.state==='FIRST_SETUP'?'block':'none';
   document.getElementById('secCards').style.display=(d.state==='LOCKED'||d.state==='UNLOCKED')?'block':'none';
   document.getElementById('secEnroll').style.display=d.state==='ENROLL'?'block':'none';
@@ -163,6 +168,22 @@ function renderUI(d){
     if(d.cards.length===0){list.innerHTML='<p style="color:#6b7280;font-size:13px">Belum ada kartu terdaftar.</p>';return;}
     list.innerHTML=d.cards.map(u=>`<div class="ci"><span class="uid">${u}</span><button class="btn-sm btn-rm" onclick="doRemove('${u}')">Hapus</button></div>`).join('');
   }
+}
+
+async function doStartEngine(){
+  if(!confirm('Hidupkan mesin via web?'))return;
+  const r=await fetch('/api/start-engine',{method:'POST'});
+  const d=await r.json();
+  if(!d.success)alert('Gagal: '+d.message);
+  setTimeout(fetchStatus,500);
+}
+
+async function doStopEngine(){
+  if(!confirm('Matikan mesin?'))return;
+  const r=await fetch('/api/stop-engine',{method:'POST'});
+  const d=await r.json();
+  if(!d.success)alert('Gagal: '+d.message);
+  setTimeout(fetchStatus,500);
 }
 
 async function doSetMaster(){
@@ -304,14 +325,34 @@ static void handleRemoveCard() {
     sendJson(200, "{\"success\":true}");
 }
 
+static void handleStartEngine() {
+    if (systemState != STATE_LOCKED) {
+        sendJson(400, "{\"success\":false,\"message\":\"Mesin sudah hidup atau sistem tidak siap\"}");
+        return;
+    }
+    pendingCommand = CMD_START_ENGINE;
+    sendJson(200, "{\"success\":true}");
+}
+
+static void handleStopEngine() {
+    if (systemState != STATE_UNLOCKED) {
+        sendJson(400, "{\"success\":false,\"message\":\"Mesin sudah mati\"}");
+        return;
+    }
+    pendingCommand = CMD_STOP_ENGINE;
+    sendJson(200, "{\"success\":true}");
+}
+
 // ── Public ───────────────────────────────────────────────────────
 void webPortalInit() {
-    server.on("/",                HTTP_GET,  handleRoot);
-    server.on("/api/status",      HTTP_GET,  handleStatus);
-    server.on("/api/last-scan",   HTTP_GET,  handleLastScan);
-    server.on("/api/set-master",  HTTP_POST, handleSetMaster);
-    server.on("/api/add-card",    HTTP_POST, handleAddCard);
-    server.on("/api/remove-card", HTTP_POST, handleRemoveCard);
+    server.on("/",                  HTTP_GET,  handleRoot);
+    server.on("/api/status",        HTTP_GET,  handleStatus);
+    server.on("/api/last-scan",     HTTP_GET,  handleLastScan);
+    server.on("/api/set-master",    HTTP_POST, handleSetMaster);
+    server.on("/api/add-card",      HTTP_POST, handleAddCard);
+    server.on("/api/remove-card",   HTTP_POST, handleRemoveCard);
+    server.on("/api/start-engine",  HTTP_POST, handleStartEngine);
+    server.on("/api/stop-engine",   HTTP_POST, handleStopEngine);
     server.begin();
 }
 
