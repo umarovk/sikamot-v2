@@ -5,8 +5,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Wire.h>
-#include <PN532_I2C.h>
-#include <PN532.h>
+#include <Adafruit_PN532.h>
 #include "../include/config.h"
 #include "../include/state.h"
 #include "buzzer.h"
@@ -14,8 +13,7 @@
 #include "web_portal.h"
 
 // ── PN532 I2C instance ───────────────────────────────────────────
-PN532_I2C pn532i2c(Wire);
-PN532 nfc(pn532i2c);
+Adafruit_PN532 nfc(PN532_IRQ, -1);
 
 // ── Global state (dideklarasikan di state.h sebagai extern) ──────
 SystemState systemState  = STATE_FIRST_SETUP;
