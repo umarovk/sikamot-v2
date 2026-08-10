@@ -233,59 +233,100 @@ ESP32 IO25 ──── R 1kΩ ──── Basis transistor
 
 ## 7. Diagram Sistem Lengkap
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      AKI MOTOR 12V                      │
-└────────┬──────────────────────────────────┬─────────────┘
-         │ (+)                              │ (-)
-         │                                 │
-    ┌────┴────┐                           GND (Common)
-    │  Fuse   │
-    │   1A    │
-    └────┬────┘
-         │
-    ┌────┴──────────┐
-    │  Step-down    │──── OUT 5V ──── ESP32 VIN
-    │  LM2596/MP1584│──── OUT GND ─── ESP32 GND
-    └───────────────┘
-    
-    12V langsung ke:
-    ├── Relay Module JD-VCC (via step-down 5V)
-    ├── Automotive Relay Kontak PIN 30
-    └── Automotive Relay Starter PIN 30
-    
-┌──────────────────────────────────────────────────────────┐
-│                      ESP32 DEVKITC V4                    │
-│                                                          │
-│  IO4  ─── PN532 IRQ                                     │
-│  IO5  ─── PN532 SS  (SPI branch only)                   │
-│  IO18 ─── PN532 SCK (SPI branch only)                   │
-│  IO19 ─── PN532 MISO(SPI branch only)                   │
-│  IO21 ─── PN532 SDA (I2C branch only)                   │
-│  IO22 ─── PN532 SCL (I2C branch only)                   │
-│  IO23 ─── PN532 MOSI(SPI branch only)                   │
-│  IO25 ─── R1kΩ ─── Basis NPN ─── Buzzer                │
-│  IO26 ─── Relay Module IN1 (Kontak)                     │
-│  IO27 ─── Relay Module IN2 (Starter)                    │
-│  3.3V ─── PN532 VCC                                     │
-│  VIN  ─── 5V dari step-down                             │
-│  GND  ─── Common GND                                    │
-└──────────────────────────────────────────────────────────┘
+### 7a. Wiring Flow — Semua Komponen
 
-┌──────────────────────────────────────────────────────────┐
-│               RELAY MODULE 2-CHANNEL                     │
-│                                                          │
-│  IN1 ─── ESP32 IO26                                     │
-│  IN2 ─── ESP32 IO27                                     │
-│  VCC ─── ESP32 3.3V (optocoupler side)                  │
-│  JD-VCC─── 5V step-down (relay coil side)               │
-│  GND ─── Common GND                                      │
-│                                                          │
-│  OUT1 COM ─── 12V                                       │
-│  OUT1 NO  ─── Automotive Relay Kontak PIN 86            │
-│  OUT2 COM ─── 12V                                       │
-│  OUT2 NO  ─── Automotive Relay Starter PIN 86           │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph PWR["⚡ Power Supply"]
+        AKI["AKI MOTOR 12V"]
+        FUSE["FUSE 1A"]
+        SD["STEP-DOWN\n12V → 5V"]
+        AKI -->|12V| FUSE --> SD
+    end
+
+    subgraph MCU["🧠 Mikrokontroler"]
+        ESP["ESP32 DevKit V4\nWROOM-32D"]
+        PN532["PN532 RFID/NFC\nSPI: IO5·18·19·23\nI2C: IO21·22\nIRQ: IO4"]
+    end
+
+    subgraph DRIVER["🔀 Driver Output"]
+        RM["RELAY MODULE 2-Channel\nActive LOW\nIN1: IO26  IN2: IO27\nJD-VCC: 5V  VCC: 3.3V"]
+        NPN["Transistor NPN\nIO25 via R 1kΩ"]
+        BUZ["BUZZER 5V Aktif"]
+        NPN -->|Collector| BUZ
+    end
+
+    subgraph AUTOREL["⚙ Relay Otomotif 4-Kaki"]
+        ARK["Relay KONTAK\nPin 86 ← 12V\nPin 85 → GND\nPin 30 → 87"]
+        ARS["Relay STARTER\nPin 86 ← 12V\nPin 85 → GND\nPin 30 → 87"]
+    end
+
+    subgraph MOTOR["🏍 Kelistrikan Motor"]
+        IGN["Jalur Ignition\nIgnition Bus"]
+        STR["Jalur Starter\nSolenoid Starter"]
+    end
+
+    SD -->|"5V → VIN"| ESP
+    SD -->|"5V → JD-VCC"| RM
+    SD -->|"5V"| BUZ
+
+    AKI -->|"12V → COM OUT1"| RM
+    AKI -->|"12V → COM OUT2"| RM
+    AKI -->|"12V → Pin 30"| ARK
+    AKI -->|"12V → Pin 30"| ARS
+
+    PN532 <-->|"SPI atau I2C"| ESP
+    ESP -->|"3.3V → VCC optocoupler"| RM
+    ESP -->|"IO26 sinyal IN1"| RM
+    ESP -->|"IO27 sinyal IN2"| RM
+    ESP -->|"IO25 + R 1kΩ"| NPN
+
+    RM -->|"OUT1 NO → Pin 86"| ARK
+    RM -->|"OUT2 NO → Pin 86"| ARS
+
+    ARK -->|"Pin 87"| IGN
+    ARS -->|"Pin 87"| STR
+```
+
+---
+
+### 7b. Sequence — Urutan Menyalakan & Mematikan Mesin
+
+```mermaid
+sequenceDiagram
+    actor User as Pengguna
+    participant RFID as Kartu RFID/KTP
+    participant ESP as ESP32
+    participant RON as Relay KONTAK
+    participant RST as Relay STARTER
+    participant M as Mesin Motor
+
+    User->>RFID: Tap ke PN532
+    RFID->>ESP: Kirim UID
+    ESP->>ESP: Cek UID authorized?
+
+    alt UID valid
+        ESP->>RON: Aktifkan (Ignition ON)
+        RON->>M: Listrik ignition mengalir
+        Note over ESP: Tunggu 1.5 detik
+        ESP->>RST: Aktifkan (Starter ON)
+        RST->>M: Dinamo starter berputar
+        M->>M: Mesin menyala
+        Note over ESP: Tunggu 3 detik
+        ESP->>RST: Matikan (Starter OFF)
+        Note over RON,M: Relay KONTAK tetap ON, mesin hidup
+    else UID tidak dikenal
+        ESP->>User: Buzzer 3x beep cepat
+    end
+
+    Note over User,M: ... mesin berjalan ...
+
+    User->>RFID: Tap lagi untuk matikan
+    RFID->>ESP: Kirim UID
+    ESP->>RON: Matikan (Ignition OFF)
+    RON->>M: Listrik ignition terputus
+    M->>M: Mesin mati
+    ESP->>User: Buzzer 1x beep panjang
 ```
 
 ---
