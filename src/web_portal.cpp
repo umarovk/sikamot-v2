@@ -1,8 +1,10 @@
 #include "web_portal.h"
 #include "storage.h"
 #include "../include/state.h"
+#include "../include/config.h"
 #include <WebServer.h>
 #include <ArduinoJson.h>
+#include <ElegantOTA.h>
 
 static WebServer server(80);
 static String lastScannedUID = "";
@@ -112,6 +114,9 @@ hr{border:none;border-top:1px solid #1f2937;margin:12px 0}
   </div>
 
 </div>
+<p style="text-align:center;margin:8px 0 20px;font-size:11px">
+  <a href="/update" style="color:#374151;text-decoration:none">Update Firmware (OTA)</a>
+</p>
 
 <script>
 let scannedUID='', curState='';
@@ -353,9 +358,26 @@ void webPortalInit() {
     server.on("/api/remove-card",   HTTP_POST, handleRemoveCard);
     server.on("/api/start-engine",  HTTP_POST, handleStartEngine);
     server.on("/api/stop-engine",   HTTP_POST, handleStopEngine);
+
+    // OTA — akses di 192.168.4.1/update
+    // Username: admin | Password: sikamot123
+    ElegantOTA.begin(&server, "admin", "sikamot123");
+    ElegantOTA.onStart([]() {
+        // Matikan relay dulu sebelum flash untuk keamanan
+        digitalWrite(PIN_RELAY_ON,      HIGH);
+        digitalWrite(PIN_RELAY_STARTER, HIGH);
+        systemState = STATE_LOCKED;
+        Serial.println("[OTA] Update dimulai — relay dimatikan.");
+    });
+    ElegantOTA.onEnd([](bool success) {
+        if (success) Serial.println("[OTA] Berhasil, restarting...");
+        else         Serial.println("[OTA] Gagal.");
+    });
+
     server.begin();
 }
 
 void webPortalHandle() {
     server.handleClient();
+    ElegantOTA.loop();
 }
